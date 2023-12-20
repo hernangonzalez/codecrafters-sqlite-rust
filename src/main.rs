@@ -1,9 +1,10 @@
 mod args;
+mod codec;
+mod file;
 
+use crate::file::SQLiteFile;
 use anyhow::Result;
 use args::Command;
-use std::fs::File;
-use std::io::prelude::*;
 
 fn main() -> Result<()> {
     // Commands
@@ -13,12 +14,8 @@ fn main() -> Result<()> {
     for cmd in args.cmds {
         match cmd {
             Command::Info => {
-                let mut file = File::open(&args.filename)?;
-                let mut header = [0; 100];
-                file.read_exact(&mut header)?;
-
-                let page_size = u16::from_be_bytes([header[16], header[17]]);
-
+                let mut file = SQLiteFile::open_at(&args.filename)?;
+                let page_size = file.page_size()?;
                 println!("database page size: {}", page_size);
             }
         }

@@ -15,7 +15,8 @@ fn main() -> Result<()> {
         match cmd {
             Command::Info => {
                 let mut file = SQLiteFile::open_at(&args.filename)?;
-                let page_size = file.page_size()?;
+                let header = file.header()?;
+                let page_size = header.page_size();
                 println!("database page size: {}", page_size);
             }
         }

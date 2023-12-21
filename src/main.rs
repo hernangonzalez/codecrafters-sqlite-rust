@@ -2,9 +2,9 @@ mod args;
 mod codec;
 mod file;
 
-use crate::file::SQLiteFile;
 use anyhow::Result;
 use args::Command;
+use file::SQLiteFile;
 
 fn main() -> Result<()> {
     // Commands
@@ -15,9 +15,8 @@ fn main() -> Result<()> {
         match cmd {
             Command::Info => {
                 let mut file = SQLiteFile::open_at(&args.filename)?;
-                let header = file.header()?;
-                let page_size = header.page_size();
-                println!("database page size: {}", page_size);
+                println!("database page size: {}", file.head.page_size());
+                println!("number of tables: {}", file.schema()?.row_count());
             }
         }
     }

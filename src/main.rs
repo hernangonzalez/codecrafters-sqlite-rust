@@ -1,5 +1,4 @@
 mod args;
-mod codec;
 mod file;
 
 use anyhow::Result;
@@ -16,7 +15,7 @@ fn main() -> Result<()> {
             Command::Info => {
                 let mut file = SQLiteFile::open_at(&args.filename)?;
                 println!("database page size: {}", file.head.page_size());
-                println!("number of tables: {}", file.schema()?.row_count());
+                println!("number of tables: {}", file.schema()?.head.cell_count);
             }
         }
     }

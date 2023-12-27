@@ -59,6 +59,13 @@ impl Value {
             _ => None,
         }
     }
+
+    pub fn as_int(&self) -> Option<i64> {
+        match self {
+            Value::Int(i) => Some(*i),
+            _ => None,
+        }
+    }
 }
 
 pub mod parser {

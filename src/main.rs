@@ -8,7 +8,7 @@ mod value;
 use crate::page::Cell;
 use anyhow::Result;
 use args::Command;
-use file::SQLiteFile;
+use file::{SQLiteFile, SQL};
 use itertools::Itertools;
 
 fn main() -> Result<()> {
@@ -31,6 +31,10 @@ fn main() -> Result<()> {
                     .flat_map(|t| t.record.values[2].as_str())
                     .join(" ");
                 println!("{msg}");
+            }
+            Command::Count(name) => {
+                let page = file.table_named(&name)?;
+                println!("{}", page.head.cell_count);
             }
         }
     }

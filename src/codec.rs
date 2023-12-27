@@ -60,12 +60,18 @@ pub mod two_complements {
 
     pub fn decode(src: &[u8]) -> Result<i64> {
         anyhow::ensure!(src.len() <= 8);
-        let mut buf = [0u8; 8];
-        let start = buf.len() - src.len();
-        for (i, b) in src.iter().enumerate() {
-            buf[start + i] = !b
-        }
-        Ok(i64::from_be_bytes(buf) + 0x1)
+        let val = match src.len() {
+            1 => u8::from_be_bytes([src[0]]) as i64,
+            len => {
+                let mut buf = [0u8; 8];
+                let start = buf.len() - len;
+                for (i, b) in src.iter().enumerate() {
+                    buf[start + i] = !b
+                }
+                i64::from_be_bytes(buf) + 0x1
+            }
+        };
+        Ok(val)
     }
 }
 

@@ -4,8 +4,8 @@ mod kind;
 
 use crate::offset::{self, Offset};
 use anyhow::{anyhow, Result};
-pub use cell::{Cell, TableLeafCell};
-use header::Header;
+pub use cell::TableLeafCell;
+pub use header::Header;
 
 #[derive(Debug)]
 pub struct Page {

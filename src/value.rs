@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Type {
     Null,
@@ -52,17 +54,22 @@ pub enum Value {
     Text(String),
 }
 
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Null => write!(f, "null"),
+            Value::Text(s) => s.fmt(f),
+            Value::Float(n) => n.fmt(f),
+            Value::Int(i) => i.fmt(f),
+            Value::Blob(_) => todo!(),
+        }
+    }
+}
+
 impl Value {
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Value::Text(s) => Some(&s),
-            _ => None,
-        }
-    }
-
-    pub fn as_int(&self) -> Option<i64> {
-        match self {
-            Value::Int(i) => Some(*i),
             _ => None,
         }
     }

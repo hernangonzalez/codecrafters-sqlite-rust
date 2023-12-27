@@ -1,4 +1,4 @@
-use anyhow::{Context, Error, Result};
+use anyhow::{bail, Context, Error, Result};
 use regex::Regex;
 use std::env;
 
@@ -6,24 +6,50 @@ use std::env;
 pub enum Command {
     Info,
     Tables,
-    Count(String),
+    Select(Select),
+}
+
+#[derive(Debug)]
+pub enum Select {
+    Count { table: String },
+    Column { table: String, column: String },
+}
+
+impl TryFrom<String> for Select {
+    type Error = Error;
+
+    fn try_from(value: String) -> Result<Self> {
+        let rg_count = Regex::new(r"select count\(\*\) from (?P<table>[A-Za-z]+)")?;
+        let rg_col = Regex::new(r"select (?P<column>[A-Za-z]+) from (?P<table>[A-Za-z]+)")?;
+        match value.as_str() {
+            s if rg_count.is_match(s) => {
+                let caps = rg_count.captures(s).context("select count regex")?;
+                let table = (&caps["table"]).to_string();
+                Ok(Select::Count { table })
+            }
+            s if rg_col.is_match(s) => {
+                let caps = rg_col.captures(s).context("select col regex")?;
+                let table = (&caps["table"]).to_string();
+                let column = (&caps["column"]).to_string();
+                Ok(Select::Column { table, column })
+            }
+            e => bail!("Not supported: {e}"),
+        }
+    }
 }
 
 impl TryFrom<String> for Command {
     type Error = Error;
 
     fn try_from(value: String) -> Result<Self> {
-        let rg_select = Regex::new(r"select count\(\*\) from (?P<table_name>[A-Za-z]+)")?;
-
         match value.as_str() {
             ".dbinfo" => Ok(Command::Info),
             ".tables" => Ok(Command::Tables),
-            count if (rg_select.is_match(count)) => {
-                let caps = rg_select.captures(count).context("regex")?;
-                let name = (&caps["table_name"]).to_string();
-                Ok(Command::Count(name))
+            s if s.starts_with("select") => {
+                let sel = Select::try_from(value)?;
+                Ok(Command::Select(sel))
             }
-            e => Err(anyhow::anyhow!("Not a command: {e}")),
+            e => bail!("Not a command: {e}"),
         }
     }
 }
@@ -37,6 +63,7 @@ pub struct Args {
 pub fn build() -> Result<Args> {
     let mut args = env::args().skip(1);
     let filename = args.next().context("Missing filename")?;
-    let cmds = args.flat_map(Command::try_from).collect();
+    let cmds = args.map(Command::try_from).collect::<Result<_>>();
+    let cmds = cmds?;
     Ok(Args { filename, cmds })
 }

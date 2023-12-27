@@ -4,36 +4,11 @@ use crate::{
     Result,
 };
 
-const CELL_TYPE_TABLE: &str = "table";
-const NAME_PREFIX_SQLITE: &str = "sqlite_";
-
-pub trait Cell {
-    fn is_table(&self) -> bool;
-    fn is_internal(&self) -> bool;
-}
-
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct TableLeafCell {
     pub id: u64,
     pub len: u64,
     pub record: Record,
-}
-
-impl Cell for TableLeafCell {
-    fn is_table(&self) -> bool {
-        self.record.values.first().map(|v| v.as_str()).flatten() == Some(CELL_TYPE_TABLE)
-    }
-
-    fn is_internal(&self) -> bool {
-        self.record
-            .values
-            .get(1)
-            .map(|s| s.as_str())
-            .flatten()
-            .map(|s| s.starts_with(NAME_PREFIX_SQLITE))
-            .unwrap_or(false)
-    }
 }
 
 #[derive(Debug, Clone)]

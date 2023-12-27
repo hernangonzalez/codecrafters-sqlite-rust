@@ -4,7 +4,6 @@ const HEADER_SIZE: usize = 100;
 
 pub struct Header([u8; HEADER_SIZE]);
 
-#[allow(dead_code)]
 impl Header {
     pub const fn size() -> usize {
         HEADER_SIZE
@@ -25,6 +24,7 @@ impl Header {
         }
     }
 
+    #[allow(dead_code)]
     /// Reserved chunk at the end of each page.
     pub fn reserved_page_size(&self) -> u8 {
         self.0[20]

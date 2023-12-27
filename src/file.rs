@@ -1,12 +1,14 @@
 mod header;
-mod page;
 
+use crate::offset::Offset;
+use crate::page::{self, Cell, Page, TableLeafCell};
 use anyhow::Result;
 use header::Header;
-use page::Page;
+use itertools::Itertools;
+use std::io::Read;
 use std::{
     fs::File,
-    io::{BufReader, Seek, SeekFrom},
+    io::{BufReader, Seek},
 };
 
 pub struct SQLiteFile {
@@ -21,13 +23,26 @@ impl SQLiteFile {
         let head = Header::read(&mut io)?;
         Ok(Self { head, io })
     }
+}
 
+impl SQLiteFile {
     pub fn schema(&mut self) -> Result<Page> {
-        self.page_at(Header::size())
+        self.read_page(0u64.into(), Header::size())
     }
 
-    fn page_at(&mut self, offset: u64) -> Result<Page> {
-        self.io.seek(SeekFrom::Start(offset))?;
-        page::read(&mut self.io, self.head.page_size() as usize)
+    fn read_page(&mut self, adr: Offset, pad: usize) -> Result<Page> {
+        self.io.seek(adr.into())?;
+        let mut data = vec![0u8; self.head.page_size() as usize];
+        self.io.read_exact(&mut data)?;
+        page::parser::build(&data, pad)
+    }
+}
+
+#[allow(unreachable_code)]
+impl SQLiteFile {
+    pub fn tables(&mut self) -> Result<Vec<TableLeafCell>> {
+        let schema = self.schema()?;
+        let cells = schema.cells();
+        Ok(cells.iter().filter(|c| c.is_table()).cloned().collect_vec())
     }
 }

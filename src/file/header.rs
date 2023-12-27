@@ -6,8 +6,8 @@ pub struct Header([u8; HEADER_SIZE]);
 
 #[allow(dead_code)]
 impl Header {
-    pub const fn size() -> u64 {
-        HEADER_SIZE as u64
+    pub const fn size() -> usize {
+        HEADER_SIZE
     }
 
     pub fn read(io: &mut impl Read) -> anyhow::Result<Self> {

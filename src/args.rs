@@ -4,6 +4,7 @@ use std::env;
 #[derive(Debug)]
 pub enum Command {
     Info,
+    Tables,
 }
 
 impl TryFrom<String> for Command {
@@ -12,6 +13,7 @@ impl TryFrom<String> for Command {
     fn try_from(value: String) -> Result<Self> {
         match value.as_str() {
             ".dbinfo" => Ok(Command::Info),
+            ".tables" => Ok(Command::Tables),
             e => Err(anyhow::anyhow!("Not a command: {e}")),
         }
     }

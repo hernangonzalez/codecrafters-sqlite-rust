@@ -6,7 +6,7 @@ mod page;
 mod schema;
 mod value;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use args::{Command, Select};
 use file::{SQLiteFile, SQL};
 use itertools::Itertools;
@@ -38,22 +38,24 @@ fn main() -> Result<()> {
                 let page = file.page_at(table.id)?;
                 println!("{}", page.head.cell_count);
             }
-            Command::Select(Select::Column { table, column }) => {
+            Command::Select(Select::Column { table, columns }) => {
                 let schema = file.schema()?;
                 let table = schema.table_named(&table)?;
                 let page = file.page_at(table.id)?;
                 let cols = table.column_names();
-                let col_idx = cols
+                let col_idx = columns
                     .iter()
-                    .find_position(|c| *c == &column.as_str())
-                    .context("column not found")?
-                    .0;
+                    .flat_map(|name| cols.iter().find_position(|c| *c == &name.as_str()))
+                    .map(|c| c.0);
 
                 let cells = page.cells();
-                let names = cells
-                    .iter()
-                    .flat_map(|cell| cell.record.values.get(col_idx))
-                    .map(|v| v.to_string());
+                let names = cells.iter().map(|cell| {
+                    col_idx
+                        .clone()
+                        .flat_map(|i| cell.record.values.get(i))
+                        .map(|v| v.to_string())
+                        .join("|")
+                });
 
                 names.for_each(|name| println!("{name}"));
             }

@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Error, Result};
+use itertools::Itertools;
 use regex::Regex;
 use std::env;
 
@@ -12,7 +13,7 @@ pub enum Command {
 #[derive(Debug)]
 pub enum Select {
     Count { table: String },
-    Column { table: String, column: String },
+    Column { table: String, columns: Vec<String> },
 }
 
 impl TryFrom<String> for Select {
@@ -20,7 +21,7 @@ impl TryFrom<String> for Select {
 
     fn try_from(value: String) -> Result<Self> {
         let rg_count = Regex::new(r"select count\(\*\) from (?P<table>[A-Za-z]+)")?;
-        let rg_col = Regex::new(r"select (?P<column>[A-Za-z]+) from (?P<table>[A-Za-z]+)")?;
+        let rg_col = Regex::new(r"select (?P<columns>[A-Za-z,\s]+) from (?P<table>[A-Za-z]+)")?;
         match value.as_str() {
             s if rg_count.is_match(s) => {
                 let caps = rg_count.captures(s).context("select count regex")?;
@@ -30,8 +31,12 @@ impl TryFrom<String> for Select {
             s if rg_col.is_match(s) => {
                 let caps = rg_col.captures(s).context("select col regex")?;
                 let table = (&caps["table"]).to_string();
-                let column = (&caps["column"]).to_string();
-                Ok(Select::Column { table, column })
+                let columns = (&caps["columns"])
+                    .to_string()
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .collect_vec();
+                Ok(Select::Column { table, columns })
             }
             e => bail!("Not supported: {e}"),
         }

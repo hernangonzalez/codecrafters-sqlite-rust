@@ -1,4 +1,6 @@
+use anyhow::{bail, Error, Result};
 use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Type {
@@ -45,7 +47,7 @@ impl Type {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Null,
     Int(i64),
@@ -66,11 +68,17 @@ impl Display for Value {
     }
 }
 
-impl Value {
-    pub fn as_str(&self) -> Option<&str> {
-        match self {
-            Value::Text(s) => Some(&s),
-            _ => None,
+impl FromStr for Value {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "NULL" => Ok(Value::Null),
+            s if s.starts_with('\'') && s.ends_with('\'') => {
+                Ok(Value::Text(s[1..s.len() - 1].to_string()))
+            }
+            s if s.chars().all(|c| c.is_digit(10)) => Ok(Value::Int(s.parse()?)),
+            _ => bail!("Unsupported format"),
         }
     }
 }

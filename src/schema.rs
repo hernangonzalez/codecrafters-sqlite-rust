@@ -96,10 +96,14 @@ impl Schema {
 
 mod parser {
     use super::*;
+    use crate::value::Value;
 
     pub fn kind(c: &TableLeafCell) -> Result<Type> {
         let value = c.record.values.get(0).context("type")?;
-        value.as_str().context("type")?.try_into()
+        let Value::Text(s) = value else {
+            bail!("invalid type")
+        };
+        s.as_str().try_into()
     }
 
     pub fn name(c: &TableLeafCell) -> Result<String> {

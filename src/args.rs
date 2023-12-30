@@ -1,3 +1,4 @@
+use crate::value::Value;
 use anyhow::{bail, Context, Error, Result};
 use itertools::Itertools;
 use regex::Regex;
@@ -10,10 +11,55 @@ pub enum Command {
     Select(Select),
 }
 
+#[derive(Debug, Clone)]
+pub struct Columns(Vec<String>);
+
+impl Columns {
+    pub fn as_slice(&self) -> &[String] {
+        self.0.as_slice()
+    }
+}
+
+impl From<&str> for Columns {
+    fn from(value: &str) -> Self {
+        Self(
+            value
+                .to_string()
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect_vec(),
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct Condition {
+    pub name: String,
+    pub value: Value,
+}
+
+impl TryFrom<&str> for Condition {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self> {
+        let mut iter = value.split('=');
+        let name = iter.next().context("column")?.trim().to_string();
+        let rhs = iter.next().context("value")?.trim();
+        let value = rhs.parse::<Value>()?;
+        Ok(Self { name, value })
+    }
+}
+
 #[derive(Debug)]
 pub enum Select {
-    Count { table: String },
-    Column { table: String, columns: Vec<String> },
+    Count {
+        table: String,
+    },
+    Column {
+        table: String,
+        columns: Columns,
+        cond: Option<Condition>,
+    },
 }
 
 impl TryFrom<String> for Select {
@@ -21,7 +67,9 @@ impl TryFrom<String> for Select {
 
     fn try_from(value: String) -> Result<Self> {
         let rg_count = Regex::new(r"select count\(\*\) from (?P<table>[A-Za-z]+)")?;
-        let rg_col = Regex::new(r"select (?P<columns>[A-Za-z,\s]+) from (?P<table>[A-Za-z]+)")?;
+        let rg_col = Regex::new(
+            r"select (?P<columns>[A-Za-z,\s]+) from (?P<table>[A-Za-z]+)(\s+where\s+(?P<cond>[A-Za-z='\s]+))?",
+        )?;
         match value.as_str() {
             s if rg_count.is_match(s) => {
                 let caps = rg_count.captures(s).context("select count regex")?;
@@ -31,12 +79,17 @@ impl TryFrom<String> for Select {
             s if rg_col.is_match(s) => {
                 let caps = rg_col.captures(s).context("select col regex")?;
                 let table = (&caps["table"]).to_string();
-                let columns = (&caps["columns"])
-                    .to_string()
-                    .split(',')
-                    .map(|s| s.trim().to_string())
-                    .collect_vec();
-                Ok(Select::Column { table, columns })
+                let columns = (&caps["columns"]).into();
+                let cond = caps
+                    .name("cond")
+                    .map(|m| m.as_str())
+                    .map(Condition::try_from)
+                    .and_then(|r| r.ok());
+                Ok(Select::Column {
+                    table,
+                    columns,
+                    cond,
+                })
             }
             e => bail!("Not supported: {e}"),
         }

@@ -12,15 +12,15 @@ pub enum Command {
 }
 
 #[derive(Debug, Clone)]
-pub struct Columns(Vec<String>);
+pub struct ColumnNames(Vec<String>);
 
-impl Columns {
+impl ColumnNames {
     pub fn as_slice(&self) -> &[String] {
         self.0.as_slice()
     }
 }
 
-impl From<&str> for Columns {
+impl From<&str> for ColumnNames {
     fn from(value: &str) -> Self {
         Self(
             value
@@ -57,7 +57,7 @@ pub enum Select {
     },
     Column {
         table: String,
-        columns: Columns,
+        columns: ColumnNames,
         cond: Option<Condition>,
     },
 }
@@ -68,7 +68,7 @@ impl TryFrom<String> for Select {
     fn try_from(value: String) -> Result<Self> {
         let rg_count = Regex::new(r"select count\(\*\) from (?P<table>[A-Za-z]+)")?;
         let rg_col = Regex::new(
-            r"select (?P<columns>[A-Za-z,\s]+) from (?P<table>[A-Za-z]+)(\s+where\s+(?P<cond>[A-Za-z='\s]+))?",
+            r"(?i)select (?P<columns>[A-Z,\s]+) from (?P<table>[A-Z]+)(\s+where\s+(?P<cond>[A-Z='\s_]+))?",
         )?;
         match value.as_str() {
             s if rg_count.is_match(s) => {
@@ -103,7 +103,7 @@ impl TryFrom<String> for Command {
         match value.as_str() {
             ".dbinfo" => Ok(Command::Info),
             ".tables" => Ok(Command::Tables),
-            s if s.starts_with("select") => {
+            s if s.to_lowercase().starts_with("select") => {
                 let sel = Select::try_from(value)?;
                 Ok(Command::Select(sel))
             }

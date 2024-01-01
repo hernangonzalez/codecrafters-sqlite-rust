@@ -1,6 +1,6 @@
-use super::kind::{self, Kind};
+use super::kind::Kind;
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Header {
     pub kind: Kind,
     pub free_block: u16,
@@ -20,14 +20,14 @@ impl Header {
     }
 }
 
-pub mod parser {
-    use super::*;
+pub mod decode {
+    use crate::page::{kind, Header};
     use nom::combinator::{cond, map};
     use nom::number::complete::{be_u16, be_u32, u8};
     use nom::sequence::tuple;
     use nom::{IResult, Parser};
 
-    pub fn build(io: &[u8]) -> IResult<&[u8], Header> {
+    pub fn take_header(io: &[u8]) -> IResult<&[u8], Header> {
         let (io, kind) = kind::parser::build(io)?;
         let fields = (be_u16, be_u16, be_u16, u8, cond(kind.is_interior(), be_u32));
         map(tuple(fields), move |t| Header {

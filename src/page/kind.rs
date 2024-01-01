@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Kind {
     TableInterior,
     TableLeaf,

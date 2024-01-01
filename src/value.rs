@@ -1,3 +1,4 @@
+use crate::codec;
 use anyhow::{bail, Error, Result};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
@@ -5,17 +6,17 @@ use std::str::FromStr;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Type {
     Null,
-    Int(u64),
+    Int(i64),
     Float64,
     Zero,
     One,
     Reserved,
-    Blob(u64),
-    Text(u64),
+    Blob(i64),
+    Text(i64),
 }
 
-impl From<u64> for Type {
-    fn from(value: u64) -> Self {
+impl From<i64> for Type {
+    fn from(value: i64) -> Self {
         match value {
             0 => Self::Null,
             n if (1..4).contains(&n) => Self::Int(n),
@@ -68,6 +69,19 @@ impl Display for Value {
     }
 }
 
+impl TryInto<i64> for &Value {
+    type Error = Error;
+
+    fn try_into(self) -> Result<i64> {
+        match self {
+            Value::Null => bail!("null"),
+            Value::Float(n) => Ok(*n as i64),
+            Value::Int(i) => Ok(*i),
+            _ => bail!("NaN"),
+        }
+    }
+}
+
 impl FromStr for Value {
     type Err = Error;
 
@@ -83,23 +97,34 @@ impl FromStr for Value {
     }
 }
 
-pub mod parser {
-    use crate::codec;
-    use crate::value::{Type, Value};
-
-    pub fn build(io: &[u8], t: Type) -> anyhow::Result<(&[u8], Value)> {
-        anyhow::ensure!(io.len() >= t.len());
-        let (buf, io) = io.split_at(t.len());
+impl Value {
+    pub fn decode(chunk: &[u8], t: Type) -> Result<Self> {
         let val = match t {
             Type::Null => Value::Null,
-            Type::Blob(_) => Value::Blob(buf.to_vec()),
-            Type::Text(_) => Value::Text(std::str::from_utf8(buf)?.to_string()),
-            Type::Int(_) => Value::Int(codec::two_complements::decode(buf)?),
-            Type::Float64 => Value::Float(codec::float::decode(buf)?),
-            Type::Reserved => unreachable!("malformed db"),
+            Type::Blob(_) => Value::Blob(chunk.to_vec()),
+            Type::Text(_) => Value::Text(std::str::from_utf8(chunk)?.to_string()),
+            Type::Int(_) => Value::Int(codec::two_complements::decode(chunk)?),
+            Type::Float64 => Value::Float(codec::float::decode(chunk)?),
+            Type::Reserved => bail!("malformed db"),
             Type::Zero => Value::Int(0),
             Type::One => Value::Int(1),
         };
-        Ok((io, val))
+        Ok(val)
+    }
+}
+
+pub mod decode {
+    use crate::codec::varint;
+    use crate::value::{Type, Value};
+    use nom::bytes::complete::take;
+    use nom::combinator::map_res;
+    use nom::{IResult, Parser};
+
+    pub fn take_value(io: &[u8], t: Type) -> IResult<&[u8], Value> {
+        map_res(take(t.len()), |c| Value::decode(c, t)).parse(io)
+    }
+
+    pub fn take_type(io: &[u8]) -> IResult<&[u8], Type> {
+        varint::take.map(Type::from).parse(io)
     }
 }

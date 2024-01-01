@@ -1,57 +1,30 @@
 use crate::Result;
-
-#[repr(u8)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum CodecError {
-    /// Not enough input bytes.
-    Insufficient,
-    /// Input bytes exceed maximum.
-    Overflow,
-}
-
-impl std::fmt::Display for CodecError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Coding error: {}", *self as u8)
-    }
-}
+use nom::bytes::complete::{tag, take_until, take_while};
+use nom::character::complete::{char, multispace0};
+use nom::multi::separated_list0;
+use nom::sequence::preceded;
+use nom::{IResult, Parser};
 
 pub mod varint {
     use super::*;
-    use itertools::{FoldWhile, Itertools};
-    const MSB: u8 = 0b1000_0000;
 
-    #[inline]
-    fn is_last(b: u8) -> bool {
-        b & MSB == 0
-    }
-
-    #[inline]
-    fn drop_msb(b: u8) -> u8 {
-        b & !MSB
-    }
-
-    #[inline]
-    pub fn decode(src: &[u8]) -> Result<(&[u8], u64)> {
-        anyhow::ensure!(src.len() > 0, CodecError::Insufficient);
-
-        let iter = src.iter();
-        let res = iter
-            .copied()
-            .enumerate()
-            .fold_while((0, 0), |(_, acc), (i, x)| {
-                let mut acc = acc << 7;
-                acc |= u64::from(drop_msb(x));
-                if is_last(x) {
-                    FoldWhile::Done((i, acc))
-                } else {
-                    FoldWhile::Continue((i, acc))
+    pub fn take(io: &[u8]) -> IResult<&[u8], i64> {
+        let mut varint: i64 = 0;
+        let mut bytes_read: usize = 0;
+        for (i, byte) in io.iter().enumerate().take(9) {
+            bytes_read += 1;
+            if i == 8 {
+                varint = (varint << 8) | *byte as i64;
+                break;
+            } else {
+                varint = (varint << 7) | (*byte & 0b0111_1111) as i64;
+                if *byte < 0b1000_0000 {
+                    break;
                 }
-            });
-
-        match res {
-            FoldWhile::Done((i, val)) => Ok((&src[i + 1..], val)),
-            FoldWhile::Continue(_) => anyhow::bail!(CodecError::Overflow),
+            }
         }
+
+        Ok((&io[bytes_read..], varint))
     }
 }
 
@@ -87,15 +60,14 @@ pub mod float {
 }
 
 pub mod sql {
-    use nom::bytes::complete::{tag, take_until, take_while};
-    use nom::character::complete::{char, multispace0};
-    use nom::multi::separated_list0;
-    use nom::sequence::preceded;
-    use nom::{IResult, Parser};
+    use super::*;
 
     fn extract_name(io: &str) -> IResult<&str, &str> {
         take_while(|c| c != ',')
-            .and_then(preceded(multispace0, take_while(char::is_alphanumeric)))
+            .and_then(preceded(
+                multispace0,
+                take_while(|c: char| c.is_ascii_graphic()),
+            ))
             .parse(io)
     }
 
@@ -116,7 +88,7 @@ pub mod sql {
 #[cfg(test)]
 mod tests {
     use super::*;
-    const SQL_CREATE: &str = "CREATE TABLE butterscotch (id integer primary key, grape text,chocolate text,coconut text,coffee text,butterscotch text)";
+    const SQL_CREATE: &str = "CREATE TABLE butterscotch (id integer primary key, grape text,eye_color text,coconut text,coffee text,butterscotch text)";
 
     #[test]
     fn test_sql_column_names() {
@@ -126,7 +98,7 @@ mod tests {
             &[
                 "id",
                 "grape",
-                "chocolate",
+                "eye_color",
                 "coconut",
                 "coffee",
                 "butterscotch"

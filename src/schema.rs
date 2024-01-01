@@ -29,9 +29,10 @@ impl TryFrom<&str> for Type {
 
 #[derive(Debug, Clone)]
 pub struct Descriptor {
-    pub id: u64,
+    pub id: i64,
     pub name: String,
     pub kind: Type,
+    pub root: i64,
     pub internal: bool,
     pub sql: String,
 }
@@ -44,11 +45,13 @@ impl TryFrom<&TableLeafCell> for Descriptor {
         let name = parser::name(r)?;
         let kind = parser::kind(r)?;
         let internal = name.starts_with(NAME_PREFIX_SQLITE);
+        let root = parser::root(r)?;
         let sql = parser::sql(r)?;
         Ok(Self {
             id,
             name,
             kind,
+            root,
             internal,
             sql,
         })
@@ -70,12 +73,11 @@ impl TryFrom<Page> for Schema {
     type Error = Error;
 
     fn try_from(page: Page) -> Result<Self> {
-        let cells = page.cells();
         let head = page.head;
+        let cells = page.into_leaf()?.cells();
         let desc = cells
             .iter()
             .map(|c| Descriptor::try_from(c))
-            .filter_ok(|t| t.kind == Type::Table)
             .try_collect()?;
         Ok(Self { head, desc })
     }
@@ -114,5 +116,10 @@ mod parser {
     pub fn sql(c: &TableLeafCell) -> Result<String> {
         let value = c.record.values.get(4).context("sql statement")?;
         Ok(value.to_string())
+    }
+
+    pub fn root(c: &TableLeafCell) -> Result<i64> {
+        let value = c.record.values.get(3).context("root page")?;
+        value.try_into()
     }
 }

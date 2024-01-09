@@ -37,6 +37,7 @@ impl SQL for SQLiteFile {
     }
 
     fn page_at(&self, idx: i64) -> Result<Page> {
+        let idx = idx - 1;
         let offset = idx * self.head.page_size() as i64;
         decode::read_page(self, offset.into(), 0)
     }
@@ -44,7 +45,7 @@ impl SQL for SQLiteFile {
     fn table(&self, name: &str) -> Result<Table> {
         let schema = self.schema()?;
         let desc = schema.table_named(name)?.clone();
-        let root = self.page_at(desc.root - 1)?;
+        let root = self.page_at(desc.root)?;
         Ok(Table::new(self, desc, root))
     }
 }

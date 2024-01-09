@@ -5,7 +5,7 @@ mod kind;
 use crate::offset::{self, Offset};
 pub use crate::page::kind::Kind;
 use crate::Result;
-use anyhow::{bail, ensure};
+use anyhow::{bail, ensure, Context};
 pub use cell::{Column, TableInteriorCell, TableLeafCell};
 pub use header::Header;
 
@@ -53,6 +53,10 @@ impl TableInteriorPage {
             .flat_map(cell::decode::take_interior_cell)
             .map(|r| r.1)
             .collect()
+    }
+
+    pub fn rhs(&self) -> Result<u32> {
+        self.0.head.right_leave.context("Missing right leave")
     }
 }
 

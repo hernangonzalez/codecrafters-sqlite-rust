@@ -56,26 +56,24 @@ impl<'a> Table<'a> {
         match kind {
             page::Kind::TableLeaf => {
                 let leave = self.root.into_leaf().unwrap();
-                Box::new(vec![leave].into_iter())
+                let iter = std::iter::once(leave);
+                Box::new(iter)
             }
             page::Kind::TableInterior => {
                 let interior = self.root.into_interior().unwrap();
+                let rhs = std::iter::once(interior.rhs())
+                    .flatten()
+                    .flat_map(|i| self.db.page_at(i as i64));
                 let iter = interior
                     .cells()
                     .into_iter()
                     .flat_map(|c| self.db.page_at(c.lhs as i64))
+                    .chain(rhs)
                     .flat_map(|p| p.into_leaf());
                 Box::new(iter)
             }
-            _ => Box::new(Vec::new().into_iter()),
+            _ => Box::new(std::iter::empty()),
         }
-        // if let Ok(leave) = self.root.into_leaf() {
-        //     return vec![leave].into_iter();
-        // }
-
-        // let Ok(interior) = self.root.into_interior() else {
-        //     return vec![].into_iter();
-        // };
     }
 
     pub fn select(
